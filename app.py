@@ -9,11 +9,11 @@ from streamlit_gsheets import GSheetsConnection
 
 Amount_per_cycle = 14.00  # Import for each cycle
 Currency = "€"  # Currency symbol
-PAYMENT_METHODS = ["Contanti", "Satispay", "Bonifico", "PayPal"] # I 4 metodi di pagamento
+PAYMENT_METHODS = ["Contanti", "Satispay", "Bonifico", "PayPal"]
 
 #------ Page Setup ----------
 
-st.set_page_config( page_title="Spotify Manager", page_icon = "🎧", layout="wide" ) # Ho messo "wide" per dare più spazio alle colonne
+st.set_page_config( page_title="Spotify Manager", page_icon = "🎧", layout="wide" )
 st.title("🎧 Spotify Family Manager")
 
 #------ Database Connection  Gsheets ----------
@@ -36,9 +36,22 @@ def get_data():
             df_payments["user_id"] = df_payments["user_id"].astype(str)
             df_payments["payment_id"] = df_payments["payment_id"].astype(str)
             
-            # Controllo di sicurezza: se la colonna del metodo non esiste ancora nel foglio, la crea
             if "payment_method" not in df_payments.columns:
                 df_payments["payment_method"] = ""
+
+        # --- LA MAGIA PER GOOGLE SHEETS ---
+        # Questo blocco prende i nomi reali e li stampa FISICAMENTE nel foglio dei pagamenti
+        if not df_users.empty and not df_payments.empty:
+            # Crea un dizionario che associa l'ID al Nome
+            mappa_nomi = dict(zip(df_users['user_id'], df_users['name']))
+            # Crea la nuova colonna 'nome_utente' nel foglio pagamenti
+            df_payments['nome_utente'] = df_payments['user_id'].map(mappa_nomi)
+            
+            # Riordina le colonne per far apparire il nome subito all'inizio nel foglio Google
+            cols = df_payments.columns.tolist()
+            if 'nome_utente' in cols:
+                cols.insert(2, cols.pop(cols.index('nome_utente')))
+                df_payments = df_payments[cols]
 
         return df_users, df_payments
     except Exception as e:
@@ -61,11 +74,12 @@ def create_user(name):
     new_payment = pd.DataFrame([{
         "payment_id": str(uuid.uuid4())[:8],
         "user_id": user_id,
+        "nome_utente": name, # Salva il nome fisicamente
         "amount": Amount_per_cycle,
         "due_date": datetime.now().strftime("%Y-%m-%d"), 
         "status": "PENDING",
         "paid_date": None,
-        "payment_method": "" # Inizializza il campo vuoto
+        "payment_method": "" 
     }])
 
     updated_users = pd.concat([df_users, new_user], ignore_index=True)
@@ -78,7 +92,7 @@ def create_user(name):
 
 def process_payment(payment_id, method):
     """Close the current payment, save the method, and create the future one."""
-    _, df_payments = get_data()
+    df_users, df_payments = get_data()
     
     idx_list = df_payments.index[df_payments['payment_id'] == payment_id].tolist()
     if not idx_list:
@@ -88,12 +102,10 @@ def process_payment(payment_id, method):
     
     current_row = df_payments.iloc[row_idx]
 
-    # 1. Update status, date AND PAYMENT METHOD
     df_payments.at[row_idx, "status"] = "PAID"
     df_payments.at[row_idx, "paid_date"] = datetime.now().strftime("%Y-%m-%d")
     df_payments.at[row_idx, "payment_method"] = method
     
-    # 2. Calculate the next due date (+4 months)
     try:
         current_due = datetime.strptime(str(current_row["due_date"]), "%Y-%m-%d")
     except:
@@ -101,15 +113,18 @@ def process_payment(payment_id, method):
     
     next_due = current_due + relativedelta(months=+4)
 
-    # 3. Create the new row for the future
+    # Recupera il nome dell'utente
+    nome = current_row["nome_utente"] if "nome_utente" in current_row else "Sconosciuto"
+
     new_payment = pd.DataFrame([{
         "payment_id": str(uuid.uuid4())[:8],
         "user_id": current_row["user_id"],
+        "nome_utente": nome, # Salva il nome anche nel futuro pagamento
         "amount": current_row["amount"],
         "due_date": next_due.strftime("%Y-%m-%d"),
         "status": "PENDING",
         "paid_date": None,
-        "payment_method": "" # Il futuro pagamento per ora non ha metodo
+        "payment_method": "" 
     }])
 
     updated_payments = pd.concat([df_payments, new_payment], ignore_index=True)
@@ -135,7 +150,7 @@ except:
     st.stop()
 
 if not df_payments.empty and not df_users.empty:
-    full_df = pd.merge(df_payments, df_users, on="user_id", how="left")
+    full_df = pd.merge(df_payments, df_users[['user_id', 'active']], on="user_id", how="left")
     full_df = full_df[full_df['active'] == True]
     full_df = full_df.sort_values(by="due_date")
 
@@ -149,16 +164,14 @@ if not df_payments.empty and not df_users.empty:
     oggi = datetime.now().date()
     for _, row in pending_status.iterrows():
         try:
-            # Controlla se la data di scadenza è passata o è oggi
             scadenza = datetime.strptime(str(row['due_date']), "%Y-%m-%d").date()
             if scadenza <= oggi:
-                da_pagare.append(row['name'])
+                da_pagare.append(row['nome_utente'])
             else:
-                in_regola.append(row['name'])
+                in_regola.append(row['nome_utente'])
         except:
-            da_pagare.append(row['name'])
+            da_pagare.append(row['nome_utente'])
     
-    # Crea due colonne con box colorati nativi di Streamlit
     col_red, col_green = st.columns(2)
     with col_red:
         testo_rossi = "\n".join([f"• {nome}" for nome in da_pagare]) if da_pagare else "Nessuno 🎉"
@@ -181,33 +194,28 @@ if not df_payments.empty and not df_users.empty:
         
         for i, row in pending.iterrows():
             with st.container(border=True):
-                # ORA ABBIAMO 5 COLONNE per far spazio alla tendina del metodo di pagamento                    
                 c1, c2, c3, c4, c5 = st.columns([3, 2, 2, 3, 2])
                 
-                c1.markdown(f"### {row['name']}")
+                c1.markdown(f"### {row['nome_utente']}")
                 
                 try:
                     due_date_obj = datetime.strptime(str(row['due_date']), "%Y-%m-%d").date()
                     if due_date_obj < datetime.now().date():
-                        # Mando a capo la data (\n) e uso ### per farla grande e rossa
                         c2.markdown(f"Scadenza:\n### :red[{row['due_date']}] ⚠️")
                     else:
-                        # Mando a capo la data (\n) e uso ### per farla grande
                         c2.markdown(f"Scadenza:\n### {row['due_date']}")
                 except:
                     c2.markdown(f"### {row['due_date']}")
                 
                 c3.markdown(f"Importo: **{Currency} {row['amount']}**")
                 
-                # LA NUOVA TENDINA PER IL METODO DI PAGAMENTO
                 selected_method = c4.selectbox(
                     "Metodo", 
                     PAYMENT_METHODS, 
                     key=f"method_{row['payment_id']}",
-                    label_visibility="collapsed" # Nasconde la scritta "Metodo" per questioni di design
+                    label_visibility="collapsed"
                 )
                 
-                # IL BOTTONE (che ora invia anche il metodo scelto)
                 if c5.button("💰 Incassa", key=f"pay_{row['payment_id']}", use_container_width=True):
                     with st.spinner("Registrazione pagamento..."):
                         process_payment(row['payment_id'], selected_method)
@@ -217,20 +225,19 @@ if not df_payments.empty and not df_users.empty:
     with tab2:
         paid = full_df[full_df['status'] == 'PAID'].sort_values(by="paid_date", ascending=False)
         
-        # Gestiamo il caso in cui ci siano pagamenti vecchi senza metodo
         if "payment_method" not in paid.columns:
             paid["payment_method"] = ""
             
         st.dataframe(
-            paid[['name', 'amount', 'due_date', 'paid_date', 'payment_method']],
+            paid[['nome_utente', 'amount', 'due_date', 'paid_date', 'payment_method']],
             hide_index=True,
             use_container_width=True,
             column_config={
-                "name": "Nome",
+                "nome_utente": "Nome",
                 "amount": "Importo",
                 "due_date": "Scadenza Rata",
                 "paid_date": "Data Pagamento",
-                "payment_method": "Tramite" # Nuova colonna nello storico!
+                "payment_method": "Tramite"
             }
         )
 else:
@@ -239,16 +246,15 @@ else:
 
 # --- LEGENDA SCADENZE IN BASSO ---
 st.divider()
-st.markdown("#### 📅 Calendario Scadenze Quadrimestrali")
+st.markdown("### 📅 Calendario Scadenze Quadrimestrali")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.info("❄️ **1° Quadrimestre** \nScadenza: **12/01** (12 Gennaio)")
+    st.info("#### ❄️ 1° Quadrimestre \n## **12/01** \n*(12 Gennaio)*")
 
 with col2:
-    st.info("🌸 **2° Quadrimestre** \nScadenza: **12/05** (12 Maggio)")
+    st.info("#### 🌸 2° Quadrimestre \n## **12/05** \n*(12 Maggio)*")
 
 with col3:
-
-    st.info("🍂 **3° Quadrimestre** \nScadenza: **12/09** (12 Settembre)")
+    st.info("#### 🍂 3° Quadrimestre \n## **12/09** \n*(12 Settembre)*")
