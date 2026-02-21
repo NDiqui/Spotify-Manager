@@ -164,8 +164,8 @@ if not df_payments.empty and not df_users.empty:
     oggi = datetime.now().date()
     for _, row in pending_status.iterrows():
         try:
-            scadenza = datetime.strptime(str(row['due_date']), "%Y-%m-%d").date()
-            if scadenza <= oggi:
+            Inizio  = datetime.strptime(str(row['due_date']), "%Y-%m-%d").date()
+            if Inizio  <= oggi:
                 da_pagare.append(row['nome_utente'])
             else:
                 in_regola.append(row['nome_utente'])
@@ -201,9 +201,9 @@ if not df_payments.empty and not df_users.empty:
                 try:
                     due_date_obj = datetime.strptime(str(row['due_date']), "%Y-%m-%d").date()
                     if due_date_obj < datetime.now().date():
-                        c2.markdown(f"Scadenza:\n### :red[{row['due_date']}] ⚠️")
+                        c2.markdown(f"Inizio :\n### :red[{row['due_date']}] ⚠️")
                     else:
-                        c2.markdown(f"Scadenza:\n### {row['due_date']}")
+                        c2.markdown(f"Inizio :\n### {row['due_date']}")
                 except:
                     c2.markdown(f"### {row['due_date']}")
                 
@@ -235,7 +235,7 @@ if not df_payments.empty and not df_users.empty:
             column_config={
                 "nome_utente": "Nome",
                 "amount": "Importo",
-                "due_date": "Scadenza Rata",
+                "due_date": "Inizio  Rata",
                 "paid_date": "Data Pagamento",
                 "payment_method": "Tramite"
             }
@@ -258,3 +258,4 @@ with col2:
 
 with col3:
     st.info("#### 🍂 3° Quadrimestre \n## **12/09** \n*(12 Settembre)*")
+
