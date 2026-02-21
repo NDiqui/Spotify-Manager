@@ -139,6 +139,38 @@ if not df_payments.empty and not df_users.empty:
     full_df = full_df[full_df['active'] == True]
     full_df = full_df.sort_values(by="due_date")
 
+    # --- INIZIO DASHBOARD RIASSUNTIVA MOBILE ---
+    st.markdown("### 📊 Stato Attuale")
+    
+    pending_status = full_df[full_df['status'] == 'PENDING']
+    da_pagare = []
+    in_regola = []
+    
+    oggi = datetime.now().date()
+    for _, row in pending_status.iterrows():
+        try:
+            # Controlla se la data di scadenza è passata o è oggi
+            scadenza = datetime.strptime(str(row['due_date']), "%Y-%m-%d").date()
+            if scadenza <= oggi:
+                da_pagare.append(row['name'])
+            else:
+                in_regola.append(row['name'])
+        except:
+            da_pagare.append(row['name'])
+    
+    # Crea due colonne con box colorati nativi di Streamlit
+    col_red, col_green = st.columns(2)
+    with col_red:
+        testo_rossi = "\n".join([f"• {nome}" for nome in da_pagare]) if da_pagare else "Nessuno 🎉"
+        st.error(f"🔴 **IN RITARDO**\n\n{testo_rossi}")
+        
+    with col_green:
+        testo_verdi = "\n".join([f"• {nome}" for nome in in_regola]) if in_regola else "Nessuno"
+        st.success(f"🟢 **IN REGOLA**\n\n{testo_verdi}")
+        
+    st.divider()
+    # --- FINE DASHBOARD RIASSUNTIVA MOBILE ---
+
     tab1, tab2 = st.tabs(["🔴 Da Incassare", "🟢 Storico Pagamenti"])
     
     with tab1:
@@ -218,4 +250,5 @@ with col2:
     st.info("🌸 **2° Quadrimestre** \nScadenza: **12/05** (12 Maggio)")
 
 with col3:
+
     st.info("🍂 **3° Quadrimestre** \nScadenza: **12/09** (12 Settembre)")
