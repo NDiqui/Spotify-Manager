@@ -201,9 +201,9 @@ if not df_payments.empty and not df_users.empty:
                 try:
                     due_date_obj = datetime.strptime(str(row['due_date']), "%Y-%m-%d").date()
                     if due_date_obj < datetime.now().date():
-                        c2.markdown(f"Inizio :\n### :red[{row['due_date']}] ⚠️")
+                        c2.markdown(f"Inizio NuovoPeriodo (esclusoPagamento) :\n### :red[{row['due_date']}] ⚠️")
                     else:
-                        c2.markdown(f"Inizio :\n### {row['due_date']}")
+                        c2.markdown(f"Inizio NuovoPeriodo (esclusoPagamento) :\n### {row['due_date']}")
                 except:
                     c2.markdown(f"### {row['due_date']}")
                 
