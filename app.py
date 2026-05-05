@@ -21,20 +21,20 @@ CICLI_SCELTA = {
 
 st.set_page_config( page_title="Spotify Manager", page_icon = "🎧", layout="wide" )
 
-# --- SISTEMA DI LOGIN PERSONALIZZATO ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    st.info("🔒 Inserisci la password per accedere al Manager")
-    pwd = st.text_input("Password", type="password")
-    if st.button("Entra"):
-        if pwd == st.secrets["app_password"]:
-            st.session_state.logged_in = True
-            st.rerun()
-        else:
-            st.error("❌ Password errata!")
-    st.stop() # Ferma l'app qui se non sei loggato!
+# --- SISTEMA DI LOGIN PERSONALIZZATO --- togliere il commento se si vuole provare la mettere l'app in sicurezza con una password
+#if "logged_in" not in st.session_state:
+ #   st.session_state.logged_in = False
+#
+#if not st.session_state.logged_in:
+ #   st.info("🔒 Inserisci la password per accedere al Manager")
+  #  pwd = st.text_input("Password", type="password")
+   # if st.button("Entra"):
+    #    if pwd == st.secrets["app_password"]:
+     #       st.session_state.logged_in = True
+      #      st.rerun()
+       # else:
+        #    st.error("❌ Password errata!")
+   # st.stop() # Ferma l'app qui se non sei loggato!
 # ---------------------------------------
 
 st.title("🎧 Spotify Family Manager")
